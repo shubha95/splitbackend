@@ -126,4 +126,17 @@ const changePassword = async ({ emailId, newPassword }) => {
   await user.save();
 };
 
-module.exports = { registerUser, loginUser, getUsers, changePassword };
+const logoutUser = async ({ userId }) => {
+  const user = await User.findById(userId);
+  if (!user) {
+    const err = new Error('User not found');
+    err.statusCode = 404;
+    throw err;
+  }
+
+  user.awsToken    = null;
+  user.tokenExpiry = null;
+  await user.save();
+};
+
+module.exports = { registerUser, loginUser, getUsers, changePassword, logoutUser };

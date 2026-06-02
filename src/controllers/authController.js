@@ -1,5 +1,5 @@
 const { validateRegisterInput, validateLoginInput, validateChangePassword, validateGetUsers } = require('../validations/authValidation');
-const { registerUser, loginUser, changePassword, getUsers }                                  = require('../services/authService');
+const { registerUser, loginUser, changePassword, getUsers, logoutUser }                      = require('../services/authService');
 const { sendSuccess, sendError }                   = require('../utils/responseHelper');
 
 exports.register = async (req, res) => {
@@ -49,11 +49,21 @@ exports.changePassword = async (req, res) => {
 exports.getMe = async (req, res) => {
   try {
     return sendSuccess(res, 200, 'User fetched successfully', {
-      id:    req.user.id,
-      name:  req.user.userName,
-      email: req.user.emailId,
+      id:       req.user.id,
+      userName: req.user.userName,
+      emailId:  req.user.emailId,
     });
   } catch (err) {
+    return sendError(res, 500, 'Internal server error');
+  }
+};
+
+exports.logout = async (req, res) => {
+  try {
+    await logoutUser({ userId: req.user.id });
+    return sendSuccess(res, 200, 'Logged out successfully');
+  } catch (err) {
+    if (err.statusCode === 404) return sendError(res, 404, err.message);
     return sendError(res, 500, 'Internal server error');
   }
 };
