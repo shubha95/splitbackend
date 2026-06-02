@@ -46,6 +46,18 @@ exports.changePassword = async (req, res) => {
   }
 };
 
+exports.getMe = async (req, res) => {
+  try {
+    return sendSuccess(res, 200, 'User fetched successfully', {
+      id:    req.user.id,
+      name:  req.user.userName,
+      email: req.user.emailId,
+    });
+  } catch (err) {
+    return sendError(res, 500, 'Internal server error');
+  }
+};
+
 exports.getUsers = async (req, res) => {
   try {
     if (!req.body || typeof req.body !== 'object') {
