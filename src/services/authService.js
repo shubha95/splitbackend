@@ -25,16 +25,22 @@ const registerUser = async ({ userName, emailId, password, address }) => {
     address:  address ? String(address).trim() : '',
   });
 
+  const token       = generateToken({ user: { id: user.id, email: user.email } });
+  const tokenExpiry = getTokenExpiry();
+
+  user.awsToken    = token;
+  user.tokenExpiry = tokenExpiry;
   await user.save();
 
   return {
     user: {
-      id:        user.id,
-      userName:  user.name,
-      emailId:   user.email,
-      address:   user.address,
-      createdAt: user.date,
+      id:       user.id,
+      userName: user.name,
+      emailId:  user.email,
+      address:  user.address,
     },
+    token,
+    tokenExpiry,
   };
 };
 
