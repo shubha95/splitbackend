@@ -1,0 +1,181 @@
+{
+  "task": "Add social login to existing Node.js + Express + MongoDB backend and update postmain",
+  "role": "You are an expert Node.js + Express + MongoDB developer.",
+  "description": "Add social login (Google, Facebook, X/Twitter, Microsoft/Outlook) to an existing backend that already has working email/password login and registration.",
+
+  "step_1_trace_first": {
+    "instruction": "Before writing ANY code, read and fully understand these files in order",
+    "files_to_read": [
+      "split/src/models/User.js",
+      "split/src/controllers/authController.js",
+      "split/src/middleware/authMiddleware.js",
+      "split/src/routes/authRoutes.js"
+    ],
+    "extract_from_each_file": {
+      "User.js": [
+        "Exact schema fields and their types",
+        "Any existing methods on the schema (pre-save hooks, comparePassword, etc.)",
+        "How timestamps are handled",
+        "Any existing indexes"
+      ],
+      "authController.js": [
+        "How the register function is structured",
+        "How the login function is structured",
+        "How JWT is signed (payload shape, expiry, secret key name)",
+        "How errors are returned (status codes, response shape)",
+        "How success responses are returned (response shape)",
+        "Any try/catch or async wrapper pattern used"
+      ],
+      "authMiddleware.js": [
+        "How the JWT is verified",
+        "How the decoded user is attached to req (req.user or req.userId)",
+        "How unauthorized errors are returned"
+      ],
+      "authRoutes.js": [
+        "How routes are registered (router.post, router.get, etc.)",
+        "How middleware is applied to protected routes",
+        "Naming conventions for route paths"
+      ]
+    },
+    "rule": "Do NOT invent new patterns. Mirror exactly what already exists in every file."
+  },
+
+  "step_2_what_to_implement": {
+
+    "2a_update_user_model": {
+      "file": "split/src/models/User.js",
+      "instruction": "Add these fields to the existing schema. Do NOT remove or change any existing fields.",
+      "new_fields": {
+        "providers": [
+          {
+            "name": "String — enum: ['google', 'facebook', 'twitter', 'outlook']",
+            "providerId": "String"
+          }
+        ],
+        "avatar": "String — default: ''"
+      },
+      "new_static_method": {
+        "name": "User.statics.findOrCreateSocialUser",
+        "params": "{ provider, providerId, email, name, avatar }",
+        "logic": [
+          "1. Search by providers.name + providers.providerId → if found, return that user",
+          "2. Else search by email → if found, push new provider into providers array, save, return user",
+          "3. Else create a brand new user with the provider in providers array",
+          "Return the user document in all three cases"
+        ]
+      }
+    },
+
+    "2b_create_social_auth_service": {
+      "file": "split/src/services/socialAuthService.js",
+      "instruction": "New file. One verify function per provider. Use axios for all HTTP calls.",
+      "functions": {
+        "verifyGoogleToken": {
+          "call": "GET https://oauth2.googleapis.com/tokeninfo?id_token={token}",
+          "returns": "{ providerId, email, name, avatar }",
+          "throws": "Descriptive error if token is invalid"
+        },
+        "verifyFacebookToken": {
+          "call": "GET https://graph.facebook.com/me?fields=id,name,email,picture&access_token={token}",
+          "returns": "{ providerId, email, name, avatar }",
+          "throws": "Descriptive error if token is invalid"
+        },
+        "verifyTwitterToken": {
+          "call": "GET https://api.twitter.com/2/users/me with header Authorization: Bearer {token}",
+          "returns": "{ providerId, email, name, avatar }",
+          "throws": "Descriptive error if token is invalid"
+        },
+        "verifyOutlookToken": {
+          "call": "GET https://graph.microsoft.com/v1.0/me with header Authorization: Bearer {token}",
+          "returns": "{ providerId, email, name, avatar }",
+          "throws": "Descriptive error if token is invalid"
+        }
+      },
+      "rules": [
+        "Use axios for all HTTP calls",
+        "Export all four functions",
+        "This is a pure service file — no Express req/res inside it",
+        "All functions must be async/await — no .then() chains",
+        "Add JSDoc comments on every function: @param, @returns, @throws"
+      ]
+    },
+
+    "2c_add_social_login_to_controller": {
+      "file": "split/src/controllers/authController.js",
+      "instruction": "Add socialLogin function to the EXISTING file. Do NOT change any existing functions.",
+      "function_name": "socialLogin",
+      "reads_from_request": ["req.body.provider", "req.body.token"],
+      "flow": [
+        "1. Validate provider is one of: google | facebook | twitter | outlook → 400 if invalid",
+        "2. Call the matching verify function from socialAuthService.js → 401 if token invalid",
+        "3. Call User.findOrCreateSocialUser() with the returned profile",
+        "4. Sign JWT using the EXACT same pattern as existing login (same payload, secret, expiry)",
+        "5. Return success response using the EXACT same shape as existing login response"
+      ],
+      "error_codes": {
+        "invalid_provider": 400,
+        "token_verification_fails": 401,
+        "any_other_error": 500
+      },
+      "rule": "Mirror the exact try/catch pattern already used in authController.js"
+    },
+
+    "2d_update_routes": {
+      "file": "split/src/routes/authRoutes.js",
+      "instruction": "Add one route to the EXISTING file. Do NOT change any existing routes.",
+      "new_route": {
+        "method": "POST",
+        "path": "/auth/social",
+        "handler": "authController.socialLogin",
+        "middleware": "none — this is a public route like /auth/login"
+      },
+      "rule": "Mirror the exact route registration style already used in the file"
+    }
+  },
+
+  "step_3_env_variables": {
+    "instruction": "Add these to .env and .env.example",
+    "new_variables": {
+      "TWITTER_BEARER_TOKEN": "your_twitter_bearer_token_here"
+    },
+    "note": "Google, Facebook, Outlook token verification does not require server-side secrets — the token is verified by calling the provider's public endpoint directly"
+  },
+
+  "rules": [
+    "Use axios for all provider API calls",
+    "No passport.js — keep it stateless and simple",
+    "All functions must be async/await — no .then() chains",
+    "Error handling must mirror the existing pattern in authController.js exactly",
+    "No new dependencies except axios (if not already installed)",
+    "Mirror variable naming style found in the existing codebase",
+    "Mirror the response shape (success/error) already used in the codebase",
+    "This is a JavaScript project — no TypeScript",
+    "Use JSDoc comments on every new function for type hints"
+  ],
+
+  "output_order": [
+    "split/src/models/User.js — updated, full file",
+    "split/src/services/socialAuthService.js — new file, full",
+    "split/src/controllers/authController.js — updated, full file",
+    "split/src/routes/authRoutes.js — updated, full file",
+    ".env.example — only the new lines to add"
+  ],
+
+  "output_rules": [
+    "Full working code — no placeholders except TODO for credentials",
+    "Add TODO comments wherever a provider credential must be configured",
+    "Comment every non-obvious block",
+    "Do not truncate — output the complete file every time"
+  ],
+
+  "final_verification_checklist": [
+    "JWT is signed with the EXACT same payload and secret as existing login",
+    "Response shape from socialLogin matches existing login response exactly",
+    "No existing register or login function is modified in any way",
+    "User.findOrCreateSocialUser handles all 3 cases: existing provider / existing email / new user",
+    "POST /auth/social is public — no auth middleware applied",
+    "Twitter bearer token is read from process.env.TWITTER_BEARER_TOKEN",
+    "All provider verify functions throw on invalid token — not return null",
+    "socialAuthService.js is a clean service — no Express req/res inside it"
+  ]
+}
