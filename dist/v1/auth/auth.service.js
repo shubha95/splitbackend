@@ -52,8 +52,7 @@ let AuthService = class AuthService {
         });
         const token = this.generateToken({ user: { id: user.id, email: user.email } });
         const tokenExpiry = this.getTokenExpiry();
-        user.awsToken = token;
-        user.tokenExpiry = tokenExpiry;
+        user.sessions.push({ token, tokenExpiry });
         await user.save();
         return {
             user: { id: user.id, userName: user.name, emailId: user.email, address: user.address },
@@ -71,8 +70,9 @@ let AuthService = class AuthService {
             throw new common_1.UnauthorizedException('Invalid email or password');
         const token = this.generateToken({ user: { id: user.id, email: user.email } });
         const tokenExpiry = this.getTokenExpiry();
-        user.awsToken = token;
-        user.tokenExpiry = tokenExpiry;
+        const now = new Date();
+        user.sessions = user.sessions.filter(s => new Date(s.tokenExpiry) > now);
+        user.sessions.push({ token, tokenExpiry });
         await user.save();
         return {
             user: { id: user.id, userName: user.name, emailId: user.email, address: user.address },
@@ -103,8 +103,9 @@ let AuthService = class AuthService {
         });
         const token = this.generateToken({ user: { id: user.id, email: user.email } });
         const tokenExpiry = this.getTokenExpiry();
-        user.awsToken = token;
-        user.tokenExpiry = tokenExpiry;
+        const now = new Date();
+        user.sessions = user.sessions.filter(s => new Date(s.tokenExpiry) > now);
+        user.sessions.push({ token, tokenExpiry });
         await user.save();
         return {
             user: { id: user.id, userName: user.name, emailId: user.email, address: user.address || '' },
@@ -148,8 +149,7 @@ let AuthService = class AuthService {
         if (!user)
             throw new common_1.NotFoundException('No account found with this email address');
         user.password = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
-        user.awsToken = null;
-        user.tokenExpiry = null;
+        user.sessions = [];
         await user.save();
     }
     async getUsers(dto) {
@@ -164,7 +164,7 @@ let AuthService = class AuthService {
         const [users, total] = await Promise.all([
             this.userModel
                 .find(filter)
-                .select('-password -awsToken -tokenExpiry -__v')
+                .select('-password -sessions -__v')
                 .skip(skip)
                 .limit(limit)
                 .lean(),
@@ -184,12 +184,11 @@ let AuthService = class AuthService {
             })),
         };
     }
-    async logout(userId) {
+    async logout(userId, token) {
         const user = await this.userModel.findById(userId);
         if (!user)
             throw new common_1.NotFoundException('User not found');
-        user.awsToken = null;
-        user.tokenExpiry = null;
+        user.sessions = user.sessions.filter(s => s.token !== token);
         await user.save();
     }
 };

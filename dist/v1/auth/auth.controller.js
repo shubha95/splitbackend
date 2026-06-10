@@ -52,7 +52,7 @@ let AuthController = class AuthController {
         };
     }
     async logout(user) {
-        await this.authService.logout(String(user.id));
+        await this.authService.logout(String(user.id), user.token);
         return { message: 'Logged out successfully', data: null };
     }
     async getUsers(dto) {

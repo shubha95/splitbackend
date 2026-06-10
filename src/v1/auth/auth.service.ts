@@ -63,8 +63,7 @@ export class AuthService {
     const token       = this.generateToken({ user: { id: user.id, email: user.email } });
     const tokenExpiry = this.getTokenExpiry();
 
-    user.awsToken    = token;
-    user.tokenExpiry = tokenExpiry;
+    user.sessions.push({ token, tokenExpiry });
     await user.save();
 
     return {
@@ -88,8 +87,10 @@ export class AuthService {
     const token       = this.generateToken({ user: { id: user.id, email: user.email } });
     const tokenExpiry = this.getTokenExpiry();
 
-    user.awsToken    = token;
-    user.tokenExpiry = tokenExpiry;
+    // remove expired sessions, then add the new one
+    const now = new Date();
+    (user.sessions as any) = user.sessions.filter(s => new Date(s.tokenExpiry) > now);
+    user.sessions.push({ token, tokenExpiry });
     await user.save();
 
     return {
@@ -127,8 +128,9 @@ export class AuthService {
     const token       = this.generateToken({ user: { id: user.id, email: user.email } });
     const tokenExpiry = this.getTokenExpiry();
 
-    user.awsToken    = token;
-    user.tokenExpiry = tokenExpiry;
+    const now = new Date();
+    (user.sessions as any) = user.sessions.filter(s => new Date(s.tokenExpiry) > now);
+    user.sessions.push({ token, tokenExpiry });
     await user.save();
 
     return {
@@ -189,9 +191,8 @@ export class AuthService {
     const user  = await this.userModel.findOne({ email });
     if (!user) throw new NotFoundException('No account found with this email address');
 
-    user.password    = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
-    user.awsToken    = null;
-    user.tokenExpiry = null;
+    user.password = await bcrypt.hash(dto.newPassword, SALT_ROUNDS);
+    (user.sessions as any) = [];
     await user.save();
   }
 
@@ -211,7 +212,7 @@ export class AuthService {
     const [users, total] = await Promise.all([
       this.userModel
         .find(filter)
-        .select('-password -awsToken -tokenExpiry -__v')
+        .select('-password -sessions -__v')
         .skip(skip)
         .limit(limit)
         .lean(),
@@ -235,11 +236,10 @@ export class AuthService {
 
   // ── logout ───────────────────────────────────────────────────────────────
 
-  async logout(userId: string) {
+  async logout(userId: string, token: string) {
     const user = await this.userModel.findById(userId);
     if (!user) throw new NotFoundException('User not found');
-    user.awsToken    = null;
-    user.tokenExpiry = null;
+    (user.sessions as any) = user.sessions.filter(s => s.token !== token);
     await user.save();
   }
 }

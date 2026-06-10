@@ -59,5 +59,5 @@ export declare class AuthService {
             createdAt: Date;
         }[];
     }>;
-    logout(userId: string): Promise<void>;
+    logout(userId: string, token: string): Promise<void>;
 }

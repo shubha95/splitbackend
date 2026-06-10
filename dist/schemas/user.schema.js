@@ -50,13 +50,9 @@ __decorate([
     __metadata("design:type", String)
 ], User.prototype, "address", void 0);
 __decorate([
-    (0, mongoose_1.Prop)({ default: null }),
-    __metadata("design:type", String)
-], User.prototype, "awsToken", void 0);
-__decorate([
-    (0, mongoose_1.Prop)({ default: null }),
-    __metadata("design:type", Date)
-], User.prototype, "tokenExpiry", void 0);
+    (0, mongoose_1.Prop)({ type: [{ token: String, tokenExpiry: Date, _id: false }], default: [] }),
+    __metadata("design:type", Array)
+], User.prototype, "sessions", void 0);
 __decorate([
     (0, mongoose_1.Prop)({ type: [exports.ProviderSchema], default: [] }),
     __metadata("design:type", Array)

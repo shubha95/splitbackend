@@ -39,11 +39,12 @@ export class JwtAuthGuard implements CanActivate {
         throw new UnauthorizedException('Access denied. User no longer exists.');
       }
 
-      if (user.awsToken !== token) {
+      const session = user.sessions?.find(s => s.token === token);
+      if (!session) {
         throw new UnauthorizedException('Access denied. Token is invalid or has been replaced.');
       }
 
-      if (!user.tokenExpiry || new Date() > new Date(user.tokenExpiry)) {
+      if (!session.tokenExpiry || new Date() > new Date(session.tokenExpiry)) {
         throw new UnauthorizedException('Access denied. Token has expired. Please login again.');
       }
 
@@ -51,6 +52,7 @@ export class JwtAuthGuard implements CanActivate {
         id:       user._id,
         userName: user.name,
         emailId:  user.email,
+        token,
       };
 
       return true;

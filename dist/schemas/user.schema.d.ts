@@ -19,8 +19,10 @@ export declare class User {
     password: string;
     date: Date;
     address: string;
-    awsToken: string;
-    tokenExpiry: Date;
+    sessions: {
+        token: string;
+        tokenExpiry: Date;
+    }[];
     providers: Provider[];
     avatar: string;
 }

@@ -31,11 +31,8 @@ export class User {
   @Prop({ default: '' })
   address: string;
 
-  @Prop({ default: null })
-  awsToken: string;
-
-  @Prop({ default: null })
-  tokenExpiry: Date;
+  @Prop({ type: [{ token: String, tokenExpiry: Date, _id: false }], default: [] })
+  sessions: { token: string; tokenExpiry: Date }[];
 
   @Prop({ type: [ProviderSchema], default: [] })
   providers: Provider[];
