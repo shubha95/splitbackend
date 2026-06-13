@@ -16,4 +16,8 @@ export class GetUsersDto {
   @IsOptional()
   @IsString()
   search?: string;
+
+  @IsOptional()
+  @IsString()
+  groupID?: string;
 }

@@ -16,13 +16,17 @@ const auth_service_1 = require("./auth.service");
 const social_auth_service_1 = require("./social-auth.service");
 const jwt_auth_guard_1 = require("./jwt-auth.guard");
 const user_schema_1 = require("../../schemas/user.schema");
+const group_member_schema_1 = require("../../schemas/group-member.schema");
 let AuthModule = class AuthModule {
 };
 exports.AuthModule = AuthModule;
 exports.AuthModule = AuthModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: user_schema_1.User.name, schema: user_schema_1.UserSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
+                { name: group_member_schema_1.GroupMember.name, schema: group_member_schema_1.GroupMemberSchema },
+            ]),
             jwt_1.JwtModule.registerAsync({
                 imports: [config_1.ConfigModule],
                 useFactory: (config) => ({

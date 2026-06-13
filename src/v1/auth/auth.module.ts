@@ -7,11 +7,15 @@ import { AuthController }    from './auth.controller';
 import { AuthService }       from './auth.service';
 import { SocialAuthService } from './social-auth.service';
 import { JwtAuthGuard }      from './jwt-auth.guard';
-import { User, UserSchema }  from '../../schemas/user.schema';
+import { User, UserSchema }               from '../../schemas/user.schema';
+import { GroupMember, GroupMemberSchema } from '../../schemas/group-member.schema';
 
 @Module({
   imports: [
-    MongooseModule.forFeature([{ name: User.name, schema: UserSchema }]),
+    MongooseModule.forFeature([
+      { name: User.name,        schema: UserSchema },
+      { name: GroupMember.name, schema: GroupMemberSchema },
+    ]),
     JwtModule.registerAsync({
       imports:    [ConfigModule],
       useFactory: (config: ConfigService) => ({

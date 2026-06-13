@@ -12,6 +12,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const group_member_controller_1 = require("./group-member.controller");
 const group_member_service_1 = require("./group-member.service");
 const group_member_schema_1 = require("../../schemas/group-member.schema");
+const user_schema_1 = require("../../schemas/user.schema");
 const auth_module_1 = require("../auth/auth.module");
 let GroupMemberModule = class GroupMemberModule {
 };
@@ -21,6 +22,7 @@ exports.GroupMemberModule = GroupMemberModule = __decorate([
         imports: [
             mongoose_1.MongooseModule.forFeature([
                 { name: group_member_schema_1.GroupMember.name, schema: group_member_schema_1.GroupMemberSchema },
+                { name: user_schema_1.User.name, schema: user_schema_1.UserSchema },
             ]),
             auth_module_1.AuthModule,
         ],

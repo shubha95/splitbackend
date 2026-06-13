@@ -6,10 +6,11 @@ import {
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import * as bcrypt from 'bcryptjs';
 
-import { User, UserDocument } from '../../schemas/user.schema';
+import { User, UserDocument }               from '../../schemas/user.schema';
+import { GroupMember, GroupMemberDocument } from '../../schemas/group-member.schema';
 import { SocialAuthService, SocialProfile } from './social-auth.service';
 import { RegisterDto }       from './dto/register.dto';
 import { LoginDto }          from './dto/login.dto';
@@ -23,7 +24,8 @@ const TOKEN_EXPIRY_H = 24;
 @Injectable()
 export class AuthService {
   constructor(
-    @InjectModel(User.name) private readonly userModel: Model<UserDocument>,
+    @InjectModel(User.name)        private readonly userModel: Model<UserDocument>,
+    @InjectModel(GroupMember.name) private readonly groupMemberModel: Model<GroupMemberDocument>,
     private readonly jwtService: JwtService,
     private readonly socialAuthService: SocialAuthService,
   ) {}
@@ -207,6 +209,17 @@ export class AuthService {
     if (dto.search && String(dto.search).trim()) {
       const regex = new RegExp(String(dto.search).trim(), 'i');
       filter.$or  = [{ name: regex }, { email: regex }];
+    }
+
+    if (dto.groupID && String(dto.groupID).trim()) {
+      const members = await this.groupMemberModel
+        .find({ groupID: String(dto.groupID).trim() })
+        .select('memberID')
+        .lean();
+      const excludeIds = members
+        .map(m => { try { return new Types.ObjectId(m.memberID); } catch { return null; } })
+        .filter(Boolean);
+      filter._id = { $nin: excludeIds };
     }
 
     const [users, total] = await Promise.all([

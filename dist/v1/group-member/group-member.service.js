@@ -17,9 +17,11 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const group_member_schema_1 = require("../../schemas/group-member.schema");
+const user_schema_1 = require("../../schemas/user.schema");
 let GroupMemberService = class GroupMemberService {
-    constructor(groupMemberModel) {
+    constructor(groupMemberModel, userModel) {
         this.groupMemberModel = groupMemberModel;
+        this.userModel = userModel;
     }
     async addMembers(requesterId, dto) {
         const requester = await this.groupMemberModel.findOne({
@@ -134,6 +136,46 @@ let GroupMemberService = class GroupMemberService {
         }
         return this.format(member);
     }
+    async getGroupMembers(requesterId, dto) {
+        const requester = await this.groupMemberModel.findOne({
+            memberID: String(requesterId),
+            groupID: String(dto.groupID),
+        });
+        if (!requester) {
+            throw new common_1.ForbiddenException('You are not a member of this group');
+        }
+        const members = await this.groupMemberModel
+            .find({ groupID: String(dto.groupID) })
+            .lean();
+        const userObjectIds = members
+            .map(m => { try {
+            return new mongoose_2.Types.ObjectId(m.memberID);
+        }
+        catch {
+            return null;
+        } })
+            .filter(Boolean);
+        const users = await this.userModel
+            .find({ _id: { $in: userObjectIds } })
+            .select('name email avatar')
+            .lean();
+        const userMap = new Map(users.map(u => [String(u._id), u]));
+        return members.map(m => {
+            const u = userMap.get(m.memberID);
+            return {
+                memberRecordID: m._id,
+                memberID: m.memberID,
+                groupID: m.groupID,
+                groupAddedBy: m.groupAddedBy,
+                role: m.role,
+                permissions: m.permissions,
+                createDate: m.createDate,
+                userName: u?.name ?? null,
+                emailId: u?.email ?? null,
+                avatar: u?.avatar ?? null,
+            };
+        });
+    }
     format(member) {
         return {
             memberRecordID: member._id,
@@ -150,6 +192,8 @@ exports.GroupMemberService = GroupMemberService;
 exports.GroupMemberService = GroupMemberService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(group_member_schema_1.GroupMember.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __param(1, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model])
 ], GroupMemberService);
 //# sourceMappingURL=group-member.service.js.map

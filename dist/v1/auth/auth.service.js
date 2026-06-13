@@ -19,12 +19,14 @@ const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const bcrypt = require("bcryptjs");
 const user_schema_1 = require("../../schemas/user.schema");
+const group_member_schema_1 = require("../../schemas/group-member.schema");
 const social_auth_service_1 = require("./social-auth.service");
 const SALT_ROUNDS = 10;
 const TOKEN_EXPIRY_H = 24;
 let AuthService = class AuthService {
-    constructor(userModel, jwtService, socialAuthService) {
+    constructor(userModel, groupMemberModel, jwtService, socialAuthService) {
         this.userModel = userModel;
+        this.groupMemberModel = groupMemberModel;
         this.jwtService = jwtService;
         this.socialAuthService = socialAuthService;
     }
@@ -161,6 +163,21 @@ let AuthService = class AuthService {
             const regex = new RegExp(String(dto.search).trim(), 'i');
             filter.$or = [{ name: regex }, { email: regex }];
         }
+        if (dto.groupID && String(dto.groupID).trim()) {
+            const members = await this.groupMemberModel
+                .find({ groupID: String(dto.groupID).trim() })
+                .select('memberID')
+                .lean();
+            const excludeIds = members
+                .map(m => { try {
+                return new mongoose_2.Types.ObjectId(m.memberID);
+            }
+            catch {
+                return null;
+            } })
+                .filter(Boolean);
+            filter._id = { $nin: excludeIds };
+        }
         const [users, total] = await Promise.all([
             this.userModel
                 .find(filter)
@@ -196,7 +213,9 @@ exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(user_schema_1.User.name)),
+    __param(1, (0, mongoose_1.InjectModel)(group_member_schema_1.GroupMember.name)),
     __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model,
         jwt_1.JwtService,
         social_auth_service_1.SocialAuthService])
 ], AuthService);

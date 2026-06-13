@@ -1,13 +1,16 @@
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { GroupMemberDocument } from '../../schemas/group-member.schema';
+import { UserDocument } from '../../schemas/user.schema';
 import { AddMembersDto } from './dto/add-members.dto';
 import { UpdateMemberDto } from './dto/update-member.dto';
 import { DeleteMemberDto } from './dto/delete-member.dto';
 import { PromoteDemoteDto } from './dto/promote-demote.dto';
 import { UpdatePermissionsDto } from './dto/update-permissions.dto';
+import { GetGroupMembersDto } from './dto/get-group-members.dto';
 export declare class GroupMemberService {
     private readonly groupMemberModel;
-    constructor(groupMemberModel: Model<GroupMemberDocument>);
+    private readonly userModel;
+    constructor(groupMemberModel: Model<GroupMemberDocument>, userModel: Model<UserDocument>);
     addMembers(requesterId: string, dto: AddMembersDto): Promise<{
         totalRequested: number;
         added: number;
@@ -32,7 +35,7 @@ export declare class GroupMemberService {
         createDate: any;
     }>;
     deleteMember(requesterId: string, dto: DeleteMemberDto): Promise<{
-        memberRecordID: import("mongoose").Types.ObjectId;
+        memberRecordID: Types.ObjectId;
     }>;
     promoteToAdmin(requesterId: string, dto: PromoteDemoteDto): Promise<{
         memberRecordID: any;
@@ -61,5 +64,17 @@ export declare class GroupMemberService {
         permissions: any;
         createDate: any;
     }>;
+    getGroupMembers(requesterId: string, dto: GetGroupMembersDto): Promise<{
+        memberRecordID: Types.ObjectId;
+        memberID: string;
+        groupID: string;
+        groupAddedBy: string;
+        role: string;
+        permissions: string[];
+        createDate: any;
+        userName: string;
+        emailId: string;
+        avatar: string;
+    }[]>;
     private format;
 }

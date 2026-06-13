@@ -4,20 +4,24 @@ import {
   NotFoundException,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
-import { Model }       from 'mongoose';
+import { Model, Types } from 'mongoose';
 
 import { GroupMember, GroupMemberDocument } from '../../schemas/group-member.schema';
-import { AddMembersDto }        from './dto/add-members.dto';
-import { UpdateMemberDto }      from './dto/update-member.dto';
-import { DeleteMemberDto }      from './dto/delete-member.dto';
-import { PromoteDemoteDto }     from './dto/promote-demote.dto';
-import { UpdatePermissionsDto } from './dto/update-permissions.dto';
+import { User, UserDocument }               from '../../schemas/user.schema';
+import { AddMembersDto }          from './dto/add-members.dto';
+import { UpdateMemberDto }        from './dto/update-member.dto';
+import { DeleteMemberDto }        from './dto/delete-member.dto';
+import { PromoteDemoteDto }       from './dto/promote-demote.dto';
+import { UpdatePermissionsDto }   from './dto/update-permissions.dto';
+import { GetGroupMembersDto }     from './dto/get-group-members.dto';
 
 @Injectable()
 export class GroupMemberService {
   constructor(
     @InjectModel(GroupMember.name)
     private readonly groupMemberModel: Model<GroupMemberDocument>,
+    @InjectModel(User.name)
+    private readonly userModel: Model<UserDocument>,
   ) {}
 
   async addMembers(requesterId: string, dto: AddMembersDto) {
@@ -182,6 +186,48 @@ export class GroupMemberService {
     }
 
     return this.format(member);
+  }
+
+  async getGroupMembers(requesterId: string, dto: GetGroupMembersDto) {
+    const requester = await this.groupMemberModel.findOne({
+      memberID: String(requesterId),
+      groupID:  String(dto.groupID),
+    });
+
+    if (!requester) {
+      throw new ForbiddenException('You are not a member of this group');
+    }
+
+    const members = await this.groupMemberModel
+      .find({ groupID: String(dto.groupID) })
+      .lean();
+
+    const userObjectIds = members
+      .map(m => { try { return new Types.ObjectId(m.memberID); } catch { return null; } })
+      .filter(Boolean);
+
+    const users = await this.userModel
+      .find({ _id: { $in: userObjectIds } })
+      .select('name email avatar')
+      .lean();
+
+    const userMap = new Map(users.map(u => [String(u._id), u]));
+
+    return members.map(m => {
+      const u = userMap.get(m.memberID);
+      return {
+        memberRecordID: m._id,
+        memberID:       m.memberID,
+        groupID:        m.groupID,
+        groupAddedBy:   m.groupAddedBy,
+        role:           m.role,
+        permissions:    m.permissions,
+        createDate:     (m as any).createDate,
+        userName:       u?.name   ?? null,
+        emailId:        u?.email  ?? null,
+        avatar:         u?.avatar ?? null,
+      };
+    });
   }
 
   private format(member: any) {

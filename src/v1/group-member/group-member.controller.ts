@@ -7,6 +7,7 @@ import { UpdateMemberDto }      from './dto/update-member.dto';
 import { DeleteMemberDto }      from './dto/delete-member.dto';
 import { PromoteDemoteDto }     from './dto/promote-demote.dto';
 import { UpdatePermissionsDto } from './dto/update-permissions.dto';
+import { GetGroupMembersDto }   from './dto/get-group-members.dto';
 import { CurrentUser, CurrentUserPayload } from '../../common/decorators/current-user.decorator';
 
 @Controller({ path: 'group-member', version: '1' })
@@ -67,5 +68,15 @@ export class GroupMemberController {
   ) {
     const data = await this.groupMemberService.updatePermissions(String(user.id), dto);
     return { message: 'Permissions updated successfully', data };
+  }
+
+  @Post('members')
+  @HttpCode(200)
+  async getGroupMembers(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: GetGroupMembersDto,
+  ) {
+    const data = await this.groupMemberService.getGroupMembers(String(user.id), dto);
+    return { message: 'Group members fetched successfully', data };
   }
 }

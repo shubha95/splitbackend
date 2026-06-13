@@ -21,6 +21,7 @@ const update_member_dto_1 = require("./dto/update-member.dto");
 const delete_member_dto_1 = require("./dto/delete-member.dto");
 const promote_demote_dto_1 = require("./dto/promote-demote.dto");
 const update_permissions_dto_1 = require("./dto/update-permissions.dto");
+const get_group_members_dto_1 = require("./dto/get-group-members.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 let GroupMemberController = class GroupMemberController {
     constructor(groupMemberService) {
@@ -49,6 +50,10 @@ let GroupMemberController = class GroupMemberController {
     async updatePermissions(user, dto) {
         const data = await this.groupMemberService.updatePermissions(String(user.id), dto);
         return { message: 'Permissions updated successfully', data };
+    }
+    async getGroupMembers(user, dto) {
+        const data = await this.groupMemberService.getGroupMembers(String(user.id), dto);
+        return { message: 'Group members fetched successfully', data };
     }
 };
 exports.GroupMemberController = GroupMemberController;
@@ -101,6 +106,15 @@ __decorate([
     __metadata("design:paramtypes", [Object, update_permissions_dto_1.UpdatePermissionsDto]),
     __metadata("design:returntype", Promise)
 ], GroupMemberController.prototype, "updatePermissions", null);
+__decorate([
+    (0, common_1.Post)('members'),
+    (0, common_1.HttpCode)(200),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, get_group_members_dto_1.GetGroupMembersDto]),
+    __metadata("design:returntype", Promise)
+], GroupMemberController.prototype, "getGroupMembers", null);
 exports.GroupMemberController = GroupMemberController = __decorate([
     (0, common_1.Controller)({ path: 'group-member', version: '1' }),
     (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),

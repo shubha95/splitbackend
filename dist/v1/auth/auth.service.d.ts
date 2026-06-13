@@ -1,6 +1,7 @@
 import { JwtService } from '@nestjs/jwt';
-import { Model } from 'mongoose';
+import { Model, Types } from 'mongoose';
 import { UserDocument } from '../../schemas/user.schema';
+import { GroupMemberDocument } from '../../schemas/group-member.schema';
 import { SocialAuthService } from './social-auth.service';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
@@ -9,9 +10,10 @@ import { GetUsersDto } from './dto/get-users.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
 export declare class AuthService {
     private readonly userModel;
+    private readonly groupMemberModel;
     private readonly jwtService;
     private readonly socialAuthService;
-    constructor(userModel: Model<UserDocument>, jwtService: JwtService, socialAuthService: SocialAuthService);
+    constructor(userModel: Model<UserDocument>, groupMemberModel: Model<GroupMemberDocument>, jwtService: JwtService, socialAuthService: SocialAuthService);
     private generateToken;
     private getTokenExpiry;
     register(dto: RegisterDto): Promise<{
@@ -52,7 +54,7 @@ export declare class AuthService {
         itemNumber: number;
         totalPages: number;
         users: {
-            id: import("mongoose").Types.ObjectId;
+            id: Types.ObjectId;
             userName: string;
             emailId: string;
             address: string;
