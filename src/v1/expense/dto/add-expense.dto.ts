@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsNumber, IsString, MaxLength, Min } from 'class-validator';
+import { IsNumber, IsOptional, IsString, MaxLength, Min } from 'class-validator';
 
 export class AddExpenseDto {
   @Type(() => Number)
@@ -10,4 +10,8 @@ export class AddExpenseDto {
   @IsString({ message: 'description is required' })
   @MaxLength(500, { message: 'description must not exceed 500 characters' })
   description: string;
+
+  @IsOptional()
+  @IsString()
+  groupID?: string;
 }

@@ -18,6 +18,7 @@ export class ExpenseService {
       userId,
       price:       Number(dto.price),
       description: String(dto.description).trim(),
+      groupID:     dto.groupID ? String(dto.groupID).trim() : null,
     });
     await expense.save();
     return this.format(expense);
@@ -64,6 +65,7 @@ export class ExpenseService {
       expenses: expenses.map((e) => ({
         id:          e._id,
         userId:      e.userId,
+        groupID:     e.groupID ?? null,
         price:       e.price,
         description: e.description,
         createdAt:   e.createdAt,
@@ -76,6 +78,7 @@ export class ExpenseService {
     return {
       id:          e._id,
       userId:      e.userId,
+      groupID:     e.groupID ?? null,
       price:       e.price,
       description: e.description,
       createdAt:   (e as any).createdAt,

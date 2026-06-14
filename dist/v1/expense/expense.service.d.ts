@@ -9,6 +9,7 @@ export declare class ExpenseService {
     addExpense(userId: string, dto: AddExpenseDto): Promise<{
         id: import("mongoose").Types.ObjectId;
         userId: import("mongoose").Schema.Types.ObjectId;
+        groupID: string;
         price: number;
         description: string;
         createdAt: any;
@@ -17,6 +18,7 @@ export declare class ExpenseService {
     updateExpense(userId: string, dto: UpdateExpenseDto): Promise<{
         id: import("mongoose").Types.ObjectId;
         userId: import("mongoose").Schema.Types.ObjectId;
+        groupID: string;
         price: number;
         description: string;
         createdAt: any;
@@ -37,6 +39,7 @@ export declare class ExpenseService {
         expenses: {
             id: import("mongoose").Types.ObjectId;
             userId: import("mongoose").FlattenMaps<import("mongoose").Schema.Types.ObjectId>;
+            groupID: string;
             price: number;
             description: string;
             createdAt: Date;

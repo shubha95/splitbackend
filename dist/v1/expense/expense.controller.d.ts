@@ -11,6 +11,7 @@ export declare class ExpenseController {
         data: {
             id: import("mongoose").Types.ObjectId;
             userId: import("mongoose").Schema.Types.ObjectId;
+            groupID: string;
             price: number;
             description: string;
             createdAt: any;
@@ -31,6 +32,7 @@ export declare class ExpenseController {
             expenses: {
                 id: import("mongoose").Types.ObjectId;
                 userId: import("mongoose").FlattenMaps<import("mongoose").Schema.Types.ObjectId>;
+                groupID: string;
                 price: number;
                 description: string;
                 createdAt: Date;
@@ -43,6 +45,7 @@ export declare class ExpenseController {
         data: {
             id: import("mongoose").Types.ObjectId;
             userId: import("mongoose").Schema.Types.ObjectId;
+            groupID: string;
             price: number;
             description: string;
             createdAt: any;

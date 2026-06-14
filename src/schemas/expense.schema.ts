@@ -13,6 +13,9 @@ export class Expense {
 
   @Prop({ required: true, trim: true, maxlength: 500 })
   description: string;
+
+  @Prop({ type: String, default: null })
+  groupID: string;
 }
 
 export const ExpenseSchema = SchemaFactory.createForClass(Expense);

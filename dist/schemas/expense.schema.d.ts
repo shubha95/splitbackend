@@ -7,6 +7,7 @@ export declare class Expense {
     userId: MongooseSchema.Types.ObjectId;
     price: number;
     description: string;
+    groupID: string;
 }
 export declare const ExpenseSchema: MongooseSchema<Expense, import("mongoose").Model<Expense, any, any, any, Document<unknown, any, Expense, any, {}> & Expense & {
     _id: import("mongoose").Types.ObjectId;

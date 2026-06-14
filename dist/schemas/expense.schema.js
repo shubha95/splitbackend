@@ -27,6 +27,10 @@ __decorate([
     (0, mongoose_1.Prop)({ required: true, trim: true, maxlength: 500 }),
     __metadata("design:type", String)
 ], Expense.prototype, "description", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, default: null }),
+    __metadata("design:type", String)
+], Expense.prototype, "groupID", void 0);
 exports.Expense = Expense = __decorate([
     (0, mongoose_1.Schema)({ timestamps: true })
 ], Expense);
