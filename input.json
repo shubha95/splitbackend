@@ -1,116 +1,248 @@
-# Prompt for Claude — Implement Chat + E2EE Socket Backend (Split-Nest) & Update Postman
-
-> Paste everything in the box below into Claude (Claude Code, run inside the Split-Nest repo). Backend only.
-
----
-
-You are a senior NestJS engineer working inside the **existing Split-Nest** project — a NestJS 10 + Mongoose 8 REST API for expense splitting. Implement a **real-time chat feature with end-to-end-encrypted (E2EE) 1-on-1 message history** over **Socket.IO**, extensible to group chat. **Backend only — no frontend.** Match Split-Nest's existing conventions exactly. Verify the items marked "VERIFY" against the real code before writing anything.
-
-## Absolute rules
-
-1. **Backend only.** No client / React Native / UI code.
-2. **Match the existing project precisely** — auth model, response envelope, folder layout, validation, naming. No parallel patterns.
-3. **The server never sees plaintext.** It stores and routes ciphertext only — never decrypts, never holds a private key.
-4. Report your plan after Step 1 and **wait for my confirmation** before implementing the bulk.
-
-## Known Split-Nest conventions (honor these)
-
-**Folder layout**
-- Feature modules in `src/v1/<feature>/` → `<feature>.module.ts`, `.controller.ts`, `.service.ts`, `dto/`.
-- **Mongoose schemas live in `src/schemas/`**, NOT in the feature folder. Put new schemas there.
-- Shared code in `src/common/` (`decorators/current-user.decorator.ts`, `filters/http-exception.filter.ts`, `interceptors/response.interceptor.ts`).
-- Register the new module in `src/v1/v1.module.ts`; import `AuthModule` (exports `JwtAuthGuard`).
-- No `types/` folder exists — colocate interfaces with the feature.
-
-**Response envelope (HTTP)**
-- A global `ResponseInterceptor` wraps every HTTP response as `{ success, statusCode, message, errors, data }`; `HttpExceptionFilter` shapes errors (422 = validation, 409 = conflict). **REST controllers return only the `data` payload — never wrap manually.**
-- **WebSocket events do NOT go through the HTTP interceptor/filter.** Define one consistent emit payload shape yourself and use it for every socket emit.
-
-**Auth — critical for the gateway**
-- Auth is **session-array based**, not a plain stateless JWT. `User` has `sessions: [{ token, tokenExpiry }]` (multi-device).
-- `JwtAuthGuard` reads the token from `Authorization: Bearer <token>` or `x-auth-token` → verifies the JWT → **finds the matching session in `user.sessions`** → checks `tokenExpiry` → sets `request.user = { id, userName, emailId, token }`.
-- **The Socket.IO `handleConnection` MUST replicate this same session-array verification** — not just `jwtService.verify`. A valid signature is not enough; the token must still exist in `user.sessions` and be unexpired. **Extract the guard's verification into a reusable `AuthService` method** so the guard and gateway share one implementation — do not duplicate it.
-- Read the socket token from `client.handshake.auth.token`. After verifying, set `client.data.user = { id, userName, emailId, token }`.
-
-**Request / pagination style**
-- The project uses **POST with a request body** even for list/read ops, and **offset pagination via `{ pageNumber, itemNumber }`** in the body. Validation via `class-validator` DTOs in `dto/`.
-
-**ID convention (VERIFY)**
-- Mixed: GroupMember stores ObjectId-hex **strings** (`memberID`, `groupID`); Expense uses real **`ObjectId` refs** (`userId` → `ref: 'User'`); querying User by a string id uses `new Types.ObjectId(id)`. Follow the **Expense pattern (real `ObjectId` refs)** for the new chat schemas; note this in your plan.
-
-## Step 1 — VERIFY, then propose a plan (stop for confirmation)
-
-Open and confirm: `JwtAuthGuard` internals (`src/v1/auth/jwt-auth.guard.ts`) and how `AuthService` loads the user + matches the session (pick the cleanest method to extract for reuse); the `User` schema; how `V1Module` imports `AuthModule`; whether `@nestjs/websockets` / `@nestjs/platform-socket.io` / `socket.io` are installed. Then output a findings summary + proposed folder structure + schema/endpoint/event plan, and **stop for my confirmation.**
-
-## Step 2 — Target structure
-
-```
-src/schemas/
-  conversation.schema.ts          # NEW
-  message.schema.ts               # NEW
-  user.schema.ts                  # EDIT: add publicKey (optional, default null)
-src/v1/chat/
-  chat.module.ts
-  chat.gateway.ts
-  chat.controller.ts
-  chat.service.ts
-  presence.service.ts
-  chat.events.ts                  # event-name constants + payload interfaces (colocated)
-  dto/
-    create-conversation.dto.ts
-    send-message.dto.ts
-    get-conversations.dto.ts
-    get-messages.dto.ts
-    upload-key.dto.ts
-src/v1/v1.module.ts               # EDIT: register ChatModule
-```
-Public-key endpoints may live in the existing **AuthModule** instead (user/auth-related) — pick what fits and state it.
-
-## Step 3 — What to build
-
-**Schemas (in `src/schemas/`)**
-- **User (edit):** add `publicKey: string | null` (base64 Curve25519 public key — safe to store; default `null`).
-- **Conversation:** `type: 'direct' | 'group'`; `participants: ObjectId[] (ref User)` for direct; for group, **reference the existing `groupID`** and reuse Group/GroupMember for membership — do not duplicate a members list. Plus `lastMessage` ref and the project's timestamp style.
-- **Message (E2EE payload only — no plaintext `content`):** `conversationId (ref)`, `senderId (ref)`, `type: 'text'|'image'`, `encryptedForReceiver: string`, `encryptedForSender: string`, `nonce: string`, `encryptionVersion: string` (default `'nacl-box-v1'`), `readBy: ObjectId[]`, timestamps.
-- **Index:** compound `{ conversationId: 1, createdAt: -1 }` on Message.
-
-**Group chat reuse:** for `type: 'group'`, derive join/send rights from existing **GroupMember** of the linked `groupID`. Reuse the existing role/permission model.
-
-**WebSocket gateway (Socket.IO)**
-- `handleConnection`: read `handshake.auth.token`, run the **shared session-verification**; on failure `client.disconnect()`; on success set `client.data.user` and register the socket in `presence.service`.
-- `handleDisconnect`: remove socket; user offline only when their socket set is empty (multi-device).
-- Events (validate payloads; authorize via `client.data.user`): `join-room` (verify participant/GroupMember, then join room = conversationId), `send-message` (validate → persist ciphertext → emit `new-message`; never decrypt), `typing` (broadcast `user-typing` excluding sender; not persisted), `read-receipt` (update `readBy` → emit `message-read`), and `presence` on connect/disconnect.
-- Put event names + payload interfaces in `chat.events.ts`; one consistent emit shape.
-
-**REST endpoints (POST-body style; interceptor wraps automatically)**
-- `POST /api/v1/auth/keys` (JWT) — store caller's `publicKey`. Body `{ publicKey }`.
-- `POST /api/v1/auth/public-key` (JWT) — fetch a user's public key. Body `{ userId }`.
-- `POST /api/v1/chat/conversations` (JWT) — create direct/group. Body `{ type, participantId?, groupID? }`.
-- `POST /api/v1/chat/conversations/list` (JWT) — paginated conversations. Body `{ pageNumber, itemNumber }`.
-- `POST /api/v1/chat/messages` (JWT) — paginated history, ciphertext only, newest-first. Body `{ conversationID, limit, beforeMessageID? }`. **Use cursor pagination (`beforeMessageID`), not `pageNumber` offset, for messages** (offset duplicates/skips with live inserts); keep POST-body style and note the deviation. Authorize: participant (direct) or GroupMember (group). Server never decrypts.
-
-**Design constraints:** REST history is the source of truth, the socket is live delivery only (client backfills via cursor on reconnect — support it). Every endpoint/event requires auth. Don't log ciphertext or tokens. Don't manually wrap REST responses. Keep the gateway free of any local-process assumption so a Socket.IO **Redis adapter** can be added later — but do NOT implement Redis now.
-
-## Step 4 — Quality bar
-
-DTOs with `class-validator` consistent with existing DTOs; reuse `@CurrentUser` for REST. Register `ChatModule` in `V1Module`, import `AuthModule`, register schemas via `MongooseModule.forFeature`. List new packages to install (`@nestjs/websockets`, `@nestjs/platform-socket.io`, `socket.io`) and why; nothing unrelated. The User `publicKey` edit must not affect existing auth flows (optional, default `null`).
-
-## Step 5 — Work order (summarize after each step)
-
-1. `publicKey` on User + keys endpoints + **extract shared session-verification** into `AuthService`.
-2. Conversation + Message schemas + Mongoose registration + `ChatModule` wired into `V1Module`.
-3. REST: create/list conversations + cursor-paginated history (with participant/GroupMember authorization).
-4. Gateway: connection auth (shared verification) + presence + `join-room` + `send-message`/`new-message`.
-5. `typing` + `read-receipt` events.
-
-## Step 6 — After implementation: update the Postman collection
-
-Once the code is implemented and confirmed working:
-
-1. **Locate the existing Postman collection** in the repo (look for a `*.postman_collection.json` file; also check for an environment file). If none exists, tell me and propose creating one rather than guessing.
-2. **Match the existing collection's conventions** — its variables (e.g. `{{baseUrl}}`, `{{token}}`), folder organization, and how auth is set (collection-level vs per-request Bearer / `x-auth-token`). Do not change existing requests.
-3. **Add the new REST requests** under a new **`Chat`** folder (and the key endpoints under the existing **`Auth`** folder): `auth/keys`, `auth/public-key`, `chat/conversations`, `chat/conversations/list`, `chat/messages`. For each, include the correct method, full `{{baseUrl}}` URL, JWT auth, and a **realistic example request body** matching the DTOs. Use ciphertext placeholder strings for the encrypted fields (e.g. `"<base64-ciphertext>"`) so the request is runnable in shape.
-4. **Document the Socket.IO events** since they aren't plain REST: if the collection format supports a Socket.IO request, add one pointing at the socket URL with `auth.token` and the events (`join-room`, `send-message`, `typing`, `read-receipt`) and their payloads. If not, add a Postman **folder description** (or a short markdown note) listing each event, direction (client→server / server→client), and payload shape.
-5. Save the updated collection file in place and give me a summary of exactly what was added.
-
-Start with **Step 1** (verify auth internals + report plan) and wait for my confirmation before implementing.
+{
+  "task": "Implement a real-time chat feature with end-to-end-encrypted (E2EE) 1-on-1 message history over Socket.IO in the existing Split-Nest NestJS + MongoDB project, extensible to group chat.",
+  "scope": "backend_only",
+  "target_model": "Claude (Claude Code, run inside the Split-Nest repo)",
+  "project": {
+    "name": "Split-Nest",
+    "type": "NestJS REST API for expense splitting",
+    "stack": {
+      "framework": "NestJS 10",
+      "database": "MongoDB + Mongoose 8",
+      "auth": "@nestjs/jwt (24h JWT) + bcryptjs, session-array based",
+      "validation": "class-validator + class-transformer",
+      "rate_limiting": "@nestjs/throttler",
+      "config": "@nestjs/config (.env)"
+    },
+    "base_url": "http://localhost:5002/api/v1",
+    "versioning": "URI-based (/v1/)"
+  },
+  "absolute_rules": [
+    "Backend only. No client / React Native / UI code.",
+    "Match the existing project precisely: auth model, response envelope, folder layout, validation, naming. No parallel patterns.",
+    "The server never sees plaintext. It stores and routes ciphertext only, never decrypts, and never holds a private key.",
+    "Report the plan after Step 1 and wait for user confirmation before implementing the bulk."
+  ],
+  "conventions": {
+    "folder_layout": {
+      "feature_modules": "src/v1/<feature>/ -> <feature>.module.ts, .controller.ts, .service.ts, dto/",
+      "schemas": "Mongoose schemas live in src/schemas/, NOT in the feature folder. Put new schemas there.",
+      "shared": "src/common/ (decorators/current-user.decorator.ts, filters/http-exception.filter.ts, interceptors/response.interceptor.ts)",
+      "module_registration": "Register the new module in src/v1/v1.module.ts; import AuthModule (exports JwtAuthGuard).",
+      "types_folder": "No types/ folder exists. Colocate interfaces with the feature."
+    },
+    "response_envelope": {
+      "http": "Global ResponseInterceptor wraps every HTTP response as { success, statusCode, message, errors, data }; HttpExceptionFilter shapes errors (422 = validation, 409 = conflict).",
+      "controllers_rule": "REST controllers return only the data payload. Never wrap responses manually.",
+      "websocket": "WebSocket events do NOT pass through the HTTP interceptor/filter. Define one consistent emit payload shape and use it for every socket emit."
+    },
+    "auth": {
+      "model": "Session-array based, not stateless JWT. User has sessions: [{ token, tokenExpiry }] (multi-device).",
+      "guard_flow": "JwtAuthGuard reads token from 'Authorization: Bearer <token>' or 'x-auth-token' -> verifies JWT -> finds matching session in user.sessions -> checks tokenExpiry -> sets request.user = { id, userName, emailId, token }.",
+      "gateway_requirement": "Socket.IO handleConnection MUST replicate this session-array verification, not just jwtService.verify. A valid signature is not enough; the token must still exist in user.sessions and be unexpired.",
+      "shared_logic": "Extract the guard's verification into a reusable AuthService method so the guard and gateway share one implementation. Do not duplicate it.",
+      "socket_token_source": "client.handshake.auth.token",
+      "socket_user_shape": "client.data.user = { id, userName, emailId, token }"
+    },
+    "request_and_pagination": {
+      "style": "POST with a request body even for list/read operations.",
+      "default_pagination": "Offset pagination via { pageNumber, itemNumber } in the body.",
+      "validation": "class-validator DTOs in the feature's dto/ folder."
+    },
+    "id_convention": {
+      "note": "Mixed in the codebase. GroupMember stores ObjectId-hex strings (memberID, groupID). Expense uses real ObjectId refs (userId -> ref User). Querying User by a string id uses new Types.ObjectId(id).",
+      "decision_for_new_schemas": "Follow the Expense pattern (real ObjectId refs) for the new chat schemas. State this in the plan.",
+      "verify": true
+    }
+  },
+  "step1_verify_then_plan": {
+    "verify": [
+      "JwtAuthGuard internals (src/v1/auth/jwt-auth.guard.ts) and how AuthService loads the user + matches the session; pick the cleanest method to extract for reuse.",
+      "The User schema (src/schemas/user.schema.ts) to add the publicKey field.",
+      "How V1Module and existing modules import AuthModule.",
+      "Whether @nestjs/websockets, @nestjs/platform-socket.io, and socket.io are installed."
+    ],
+    "output": "A findings summary + proposed folder structure + schema/endpoint/event plan.",
+    "then": "Stop and wait for user confirmation before implementing."
+  },
+  "target_structure": {
+    "new_files": [
+      "src/schemas/conversation.schema.ts",
+      "src/schemas/message.schema.ts",
+      "src/v1/chat/chat.module.ts",
+      "src/v1/chat/chat.gateway.ts",
+      "src/v1/chat/chat.controller.ts",
+      "src/v1/chat/chat.service.ts",
+      "src/v1/chat/presence.service.ts",
+      "src/v1/chat/chat.events.ts",
+      "src/v1/chat/dto/create-conversation.dto.ts",
+      "src/v1/chat/dto/send-message.dto.ts",
+      "src/v1/chat/dto/get-conversations.dto.ts",
+      "src/v1/chat/dto/get-messages.dto.ts",
+      "src/v1/chat/dto/upload-key.dto.ts"
+    ],
+    "edit_files": [
+      "src/schemas/user.schema.ts (add publicKey, optional, default null)",
+      "src/v1/v1.module.ts (register ChatModule)"
+    ],
+    "note": "Public-key endpoints may live in the existing AuthModule instead (user/auth-related). Pick what fits and state it."
+  },
+  "schemas": {
+    "user_edit": {
+      "field": "publicKey",
+      "type": "string | null",
+      "default": null,
+      "note": "base64 Curve25519 public key. Safe to store. Must not affect existing auth flows."
+    },
+    "conversation": {
+      "fields": {
+        "type": "'direct' | 'group'",
+        "participants": "ObjectId[] (ref User) for direct conversations",
+        "groupID": "reference the existing Group for group conversations (reuse Group/GroupMember for membership, do not duplicate a members list)",
+        "lastMessage": "ObjectId (ref Message)",
+        "timestamps": "follow the project's timestamp style"
+      }
+    },
+    "message": {
+      "no_plaintext": "No plaintext 'content' field. E2EE payload only.",
+      "fields": {
+        "conversationId": "ObjectId (ref Conversation)",
+        "senderId": "ObjectId (ref User)",
+        "type": "'text' | 'image'",
+        "encryptedForReceiver": "string (base64 ciphertext)",
+        "encryptedForSender": "string (base64 ciphertext)",
+        "nonce": "string (base64, unique per message)",
+        "encryptionVersion": "string (default 'nacl-box-v1')",
+        "readBy": "ObjectId[]",
+        "timestamps": true
+      },
+      "index": "compound { conversationId: 1, createdAt: -1 } for fast paginated history"
+    }
+  },
+  "group_chat_reuse": "For type 'group' conversations, derive join/send rights from the existing GroupMember membership of the linked groupID. Reuse the existing role/permission model. Do not build a second membership system.",
+  "websocket": {
+    "transport": "Socket.IO",
+    "gateway": {
+      "handleConnection": "Read handshake.auth.token, run the shared session-verification (verify JWT + match user.sessions + check expiry). On failure client.disconnect(). On success set client.data.user and register the socket in presence.service.",
+      "handleDisconnect": "Remove the socket; user is offline only when their socket set is empty (multi-device, consistent with sessions model).",
+      "scaling_note": "Keep the gateway free of any assumption that a socket lives in the local process so a Socket.IO Redis adapter can be added later. Do NOT implement Redis now."
+    },
+    "events": [
+      {
+        "name": "join-room",
+        "direction": "client_to_server",
+        "behavior": "Verify the user is a participant (direct) or GroupMember (group), then join room = conversationId.",
+        "payload": "{ conversationId }"
+      },
+      {
+        "name": "send-message",
+        "direction": "client_to_server",
+        "behavior": "Validate DTO, persist ciphertext via chat.service, then emit 'new-message' to the room. Never decrypt.",
+        "payload": "{ conversationId, type, encryptedForReceiver, encryptedForSender, nonce, encryptionVersion }"
+      },
+      {
+        "name": "new-message",
+        "direction": "server_to_client",
+        "behavior": "Live delivery of a saved (ciphertext) message to the room.",
+        "payload": "the saved Message document"
+      },
+      {
+        "name": "typing",
+        "direction": "client_to_server",
+        "behavior": "Broadcast 'user-typing' to the room excluding the sender. Not persisted.",
+        "payload": "{ conversationId }"
+      },
+      {
+        "name": "user-typing",
+        "direction": "server_to_client",
+        "payload": "{ conversationId, userId }"
+      },
+      {
+        "name": "read-receipt",
+        "direction": "client_to_server",
+        "behavior": "Update readBy, emit 'message-read' to the room.",
+        "payload": "{ messageId, conversationId }"
+      },
+      {
+        "name": "message-read",
+        "direction": "server_to_client",
+        "payload": "{ messageId, userId }"
+      },
+      {
+        "name": "presence",
+        "direction": "server_to_client",
+        "behavior": "Emitted on connect/disconnect.",
+        "payload": "{ userId, status: 'online' | 'offline' }"
+      }
+    ],
+    "events_file": "Define event-name constants + payload interfaces in chat.events.ts. Use one consistent emit shape."
+  },
+  "rest_endpoints": [
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/keys",
+      "guard": "JWT",
+      "description": "Store the caller's public key.",
+      "body": { "publicKey": "<base64-public-key>" }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/auth/public-key",
+      "guard": "JWT",
+      "description": "Fetch a user's public key (POST-body to match project style).",
+      "body": { "userId": "<userId>" }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/conversations",
+      "guard": "JWT",
+      "description": "Create a direct or group conversation.",
+      "body": { "type": "direct | group", "participantId": "<userId, for direct>", "groupID": "<groupId, for group>" }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/conversations/list",
+      "guard": "JWT",
+      "description": "Paginated list of the user's conversations (offset pagination).",
+      "body": { "pageNumber": 1, "itemNumber": 10 }
+    },
+    {
+      "method": "POST",
+      "path": "/api/v1/chat/messages",
+      "guard": "JWT",
+      "description": "Paginated message history, ciphertext only, newest-first. Use cursor pagination (beforeMessageID), NOT pageNumber offset, because offset duplicates/skips rows with live inserts. Keep POST-body style. Authorize: participant (direct) or GroupMember (group). Server never decrypts.",
+      "body": { "conversationID": "<conversationId>", "limit": 30, "beforeMessageID": "<optional cursor, last seen message id>" }
+    }
+  ],
+  "design_constraints": [
+    "REST history is the source of truth; the socket is live delivery only. On reconnect the client backfills history via the cursor, so the history endpoint must support that.",
+    "Every endpoint/event requires the authenticated user (existing guard for REST, shared verification for WS).",
+    "Do not log ciphertext or tokens.",
+    "Do not manually wrap REST responses (the interceptor does it).",
+    "Strong typing for socket payloads."
+  ],
+  "quality_bar": [
+    "DTOs with class-validator consistent with existing DTOs; reuse the @CurrentUser decorator for REST.",
+    "Register ChatModule in V1Module; import AuthModule; register new schemas via MongooseModule.forFeature.",
+    "List new packages to install (@nestjs/websockets, @nestjs/platform-socket.io, socket.io) and why; add nothing unrelated.",
+    "Do not break existing modules. The User publicKey edit must be optional with default null."
+  ],
+  "work_order": [
+    "1. publicKey on User + keys endpoints + extract shared session-verification from JwtAuthGuard into a reusable AuthService method.",
+    "2. Conversation + Message schemas + Mongoose registration + ChatModule wired into V1Module.",
+    "3. REST: create/list conversations + cursor-paginated message history (with participant/GroupMember authorization).",
+    "4. Gateway: connection auth (shared verification) + presence + join-room + send-message/new-message.",
+    "5. typing + read-receipt events.",
+    "Summarize changes after each step."
+  ],
+  "postman_update": {
+    "when": "After the code is implemented and confirmed working.",
+    "steps": [
+      "Locate the existing Postman collection in the repo (look for a *.postman_collection.json file and any environment file). If none exists, tell the user and propose creating one rather than guessing.",
+      "Match the existing collection's conventions: variables (e.g. {{baseUrl}}, {{token}}), folder organization, and how auth is set (collection-level vs per-request Bearer / x-auth-token). Do not change existing requests.",
+      "Add the new REST requests under a new 'Chat' folder (and the key endpoints under the existing 'Auth' folder): auth/keys, auth/public-key, chat/conversations, chat/conversations/list, chat/messages. For each, include the correct method, full {{baseUrl}} URL, JWT auth, and a realistic example body matching the DTOs. Use placeholder ciphertext strings (e.g. '<base64-ciphertext>') so requests are runnable in shape.",
+      "Document the Socket.IO events: if the collection format supports a Socket.IO request, add one pointing at the socket URL with auth.token and the events (join-room, send-message, typing, read-receipt) and their payloads. If not, add a folder description or markdown note listing each event, direction, and payload shape.",
+      "Save the updated collection file in place and summarize exactly what was added."
+    ]
+  },
+  "start_with": "Step 1 (verify auth internals + report plan), then wait for user confirmation before implementing."
+}

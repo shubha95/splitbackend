@@ -17,11 +17,22 @@ const common_1 = require("@nestjs/common");
 const mongoose_1 = require("@nestjs/mongoose");
 const mongoose_2 = require("mongoose");
 const expense_schema_1 = require("../../schemas/expense.schema");
+const group_member_schema_1 = require("../../schemas/group-member.schema");
 let ExpenseService = class ExpenseService {
-    constructor(expenseModel) {
+    constructor(expenseModel, groupMemberModel) {
         this.expenseModel = expenseModel;
+        this.groupMemberModel = groupMemberModel;
     }
     async addExpense(userId, dto) {
+        if (dto.groupID) {
+            const isMember = await this.groupMemberModel.exists({
+                memberID: userId,
+                groupID: String(dto.groupID).trim(),
+            });
+            if (!isMember) {
+                throw new common_1.ForbiddenException('You are not a member of this group');
+            }
+        }
         const expense = new this.expenseModel({
             userId,
             price: Number(dto.price),
@@ -52,9 +63,12 @@ let ExpenseService = class ExpenseService {
         const page = Number(dto.pageNumber);
         const limit = Number(dto.itemNumber);
         const skip = (page - 1) * limit;
+        const filter = { userId };
+        if (dto.groupID)
+            filter.groupID = String(dto.groupID).trim();
         const [expenses, totalItems] = await Promise.all([
-            this.expenseModel.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-            this.expenseModel.countDocuments({ userId }),
+            this.expenseModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+            this.expenseModel.countDocuments(filter),
         ]);
         const totalPages = Math.ceil(totalItems / limit);
         return {
@@ -93,6 +107,8 @@ exports.ExpenseService = ExpenseService;
 exports.ExpenseService = ExpenseService = __decorate([
     (0, common_1.Injectable)(),
     __param(0, (0, mongoose_1.InjectModel)(expense_schema_1.Expense.name)),
-    __metadata("design:paramtypes", [mongoose_2.Model])
+    __param(1, (0, mongoose_1.InjectModel)(group_member_schema_1.GroupMember.name)),
+    __metadata("design:paramtypes", [mongoose_2.Model,
+        mongoose_2.Model])
 ], ExpenseService);
 //# sourceMappingURL=expense.service.js.map

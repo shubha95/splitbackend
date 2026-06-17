@@ -8,6 +8,8 @@ import { LoginDto } from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GetUsersDto } from './dto/get-users.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
+import { UploadKeyDto } from './dto/upload-key.dto';
+import { GetPublicKeyDto } from './dto/get-public-key.dto';
 export declare class AuthService {
     private readonly userModel;
     private readonly groupMemberModel;
@@ -62,4 +64,16 @@ export declare class AuthService {
         }[];
     }>;
     logout(userId: string, token: string): Promise<void>;
+    verifyToken(token: string): Promise<{
+        id: string;
+        userName: string;
+        emailId: string;
+        token: string;
+    }>;
+    uploadKey(userId: string, dto: UploadKeyDto): Promise<void>;
+    getPublicKey(dto: GetPublicKeyDto): Promise<{
+        userId: string;
+        userName: string;
+        publicKey: string;
+    }>;
 }

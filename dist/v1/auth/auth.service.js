@@ -208,6 +208,38 @@ let AuthService = class AuthService {
         user.sessions = user.sessions.filter(s => s.token !== token);
         await user.save();
     }
+    async verifyToken(token) {
+        try {
+            const decoded = this.jwtService.verify(token);
+            const user = await this.userModel.findById(decoded.user.id).select('-password').lean();
+            if (!user)
+                throw new common_1.UnauthorizedException('Access denied. User no longer exists.');
+            const session = user.sessions?.find(s => s.token === token);
+            if (!session)
+                throw new common_1.UnauthorizedException('Access denied. Token is invalid or has been replaced.');
+            if (!session.tokenExpiry || new Date() > new Date(session.tokenExpiry)) {
+                throw new common_1.UnauthorizedException('Access denied. Token has expired. Please login again.');
+            }
+            return { id: String(user._id), userName: user.name, emailId: user.email, token };
+        }
+        catch (err) {
+            if (err instanceof common_1.UnauthorizedException)
+                throw err;
+            throw new common_1.UnauthorizedException('Access denied. Token is not valid.');
+        }
+    }
+    async uploadKey(userId, dto) {
+        await this.userModel.findByIdAndUpdate(userId, { publicKey: String(dto.publicKey).trim() });
+    }
+    async getPublicKey(dto) {
+        const user = await this.userModel
+            .findById(dto.userId)
+            .select('publicKey name email')
+            .lean();
+        if (!user)
+            throw new common_1.NotFoundException('User not found');
+        return { userId: String(user._id), userName: user.name, publicKey: user.publicKey ?? null };
+    }
 };
 exports.AuthService = AuthService;
 exports.AuthService = AuthService = __decorate([

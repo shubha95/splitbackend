@@ -4,6 +4,8 @@ import { LoginDto } from './dto/login.dto';
 import { SocialLoginDto } from './dto/social-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GetUsersDto } from './dto/get-users.dto';
+import { UploadKeyDto } from './dto/upload-key.dto';
+import { GetPublicKeyDto } from './dto/get-public-key.dto';
 import { CurrentUserPayload } from '../../common/decorators/current-user.decorator';
 export declare class AuthController {
     private readonly authService;
@@ -77,6 +79,18 @@ export declare class AuthController {
                 address: string;
                 createdAt: Date;
             }[];
+        };
+    }>;
+    uploadKey(user: CurrentUserPayload, dto: UploadKeyDto): Promise<{
+        message: string;
+        data: any;
+    }>;
+    getPublicKey(dto: GetPublicKeyDto): Promise<{
+        message: string;
+        data: {
+            userId: string;
+            userName: string;
+            publicKey: string;
         };
     }>;
 }

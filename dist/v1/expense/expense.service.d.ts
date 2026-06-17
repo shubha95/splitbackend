@@ -1,11 +1,13 @@
 import { Model } from 'mongoose';
 import { ExpenseDocument } from '../../schemas/expense.schema';
+import { GroupMemberDocument } from '../../schemas/group-member.schema';
 import { AddExpenseDto } from './dto/add-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { GetExpensesDto } from './dto/get-expenses.dto';
 export declare class ExpenseService {
     private readonly expenseModel;
-    constructor(expenseModel: Model<ExpenseDocument>);
+    private readonly groupMemberModel;
+    constructor(expenseModel: Model<ExpenseDocument>, groupMemberModel: Model<GroupMemberDocument>);
     addExpense(userId: string, dto: AddExpenseDto): Promise<{
         id: import("mongoose").Types.ObjectId;
         userId: import("mongoose").Schema.Types.ObjectId;

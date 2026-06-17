@@ -1,5 +1,6 @@
 import {
   ConflictException,
+  ForbiddenException,
   Injectable,
   NotFoundException,
   UnauthorizedException,
@@ -17,6 +18,8 @@ import { LoginDto }          from './dto/login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GetUsersDto }       from './dto/get-users.dto';
 import { SocialLoginDto }    from './dto/social-login.dto';
+import { UploadKeyDto }      from './dto/upload-key.dto';
+import { GetPublicKeyDto }   from './dto/get-public-key.dto';
 
 const SALT_ROUNDS    = 10;
 const TOKEN_EXPIRY_H = 24;
@@ -254,5 +257,43 @@ export class AuthService {
     if (!user) throw new NotFoundException('User not found');
     (user.sessions as any) = user.sessions.filter(s => s.token !== token);
     await user.save();
+  }
+
+  // ── shared token verification (used by JwtAuthGuard + ChatGateway) ────────
+
+  async verifyToken(token: string): Promise<{ id: string; userName: string; emailId: string; token: string }> {
+    try {
+      const decoded = this.jwtService.verify<{ user: { id: string; email: string } }>(token);
+      const user    = await this.userModel.findById(decoded.user.id).select('-password').lean();
+
+      if (!user) throw new UnauthorizedException('Access denied. User no longer exists.');
+
+      const session = user.sessions?.find(s => s.token === token);
+      if (!session) throw new UnauthorizedException('Access denied. Token is invalid or has been replaced.');
+
+      if (!session.tokenExpiry || new Date() > new Date(session.tokenExpiry)) {
+        throw new UnauthorizedException('Access denied. Token has expired. Please login again.');
+      }
+
+      return { id: String(user._id), userName: user.name, emailId: user.email, token };
+    } catch (err) {
+      if (err instanceof UnauthorizedException) throw err;
+      throw new UnauthorizedException('Access denied. Token is not valid.');
+    }
+  }
+
+  // ── E2EE public key management ────────────────────────────────────────────
+
+  async uploadKey(userId: string, dto: UploadKeyDto) {
+    await this.userModel.findByIdAndUpdate(userId, { publicKey: String(dto.publicKey).trim() });
+  }
+
+  async getPublicKey(dto: GetPublicKeyDto) {
+    const user = await this.userModel
+      .findById(dto.userId)
+      .select('publicKey name email')
+      .lean();
+    if (!user) throw new NotFoundException('User not found');
+    return { userId: String(user._id), userName: user.name, publicKey: user.publicKey ?? null };
   }
 }

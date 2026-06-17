@@ -61,6 +61,10 @@ __decorate([
     (0, mongoose_1.Prop)({ default: '' }),
     __metadata("design:type", String)
 ], User.prototype, "avatar", void 0);
+__decorate([
+    (0, mongoose_1.Prop)({ type: String, default: null }),
+    __metadata("design:type", String)
+], User.prototype, "publicKey", void 0);
 exports.User = User = __decorate([
     (0, mongoose_1.Schema)()
 ], User);

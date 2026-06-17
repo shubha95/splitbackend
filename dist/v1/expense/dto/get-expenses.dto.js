@@ -28,4 +28,9 @@ __decorate([
     (0, class_validator_1.Max)(100, { message: 'itemNumber must not exceed 100 per page' }),
     __metadata("design:type", Number)
 ], GetExpensesDto.prototype, "itemNumber", void 0);
+__decorate([
+    (0, class_validator_1.IsOptional)(),
+    (0, class_validator_1.IsString)(),
+    __metadata("design:type", String)
+], GetExpensesDto.prototype, "groupID", void 0);
 //# sourceMappingURL=get-expenses.dto.js.map

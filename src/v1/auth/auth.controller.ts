@@ -15,6 +15,8 @@ import { LoginDto }         from './dto/login.dto';
 import { SocialLoginDto }   from './dto/social-login.dto';
 import { ChangePasswordDto } from './dto/change-password.dto';
 import { GetUsersDto }      from './dto/get-users.dto';
+import { UploadKeyDto }     from './dto/upload-key.dto';
+import { GetPublicKeyDto }  from './dto/get-public-key.dto';
 import { CurrentUser, CurrentUserPayload } from '../../common/decorators/current-user.decorator';
 
 @Controller({ path: 'auth', version: '1' })
@@ -74,5 +76,24 @@ export class AuthController {
   async getUsers(@Body() dto: GetUsersDto) {
     const data = await this.authService.getUsers(dto);
     return { message: 'Users fetched successfully', data };
+  }
+
+  @Post('keys')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async uploadKey(
+    @CurrentUser() user: CurrentUserPayload,
+    @Body() dto: UploadKeyDto,
+  ) {
+    await this.authService.uploadKey(String(user.id), dto);
+    return { message: 'Public key stored successfully', data: null };
+  }
+
+  @Post('public-key')
+  @HttpCode(200)
+  @UseGuards(JwtAuthGuard)
+  async getPublicKey(@Body() dto: GetPublicKeyDto) {
+    const data = await this.authService.getPublicKey(dto);
+    return { message: 'Public key fetched successfully', data };
   }
 }

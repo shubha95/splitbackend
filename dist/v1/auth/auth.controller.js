@@ -21,6 +21,8 @@ const login_dto_1 = require("./dto/login.dto");
 const social_login_dto_1 = require("./dto/social-login.dto");
 const change_password_dto_1 = require("./dto/change-password.dto");
 const get_users_dto_1 = require("./dto/get-users.dto");
+const upload_key_dto_1 = require("./dto/upload-key.dto");
+const get_public_key_dto_1 = require("./dto/get-public-key.dto");
 const current_user_decorator_1 = require("../../common/decorators/current-user.decorator");
 let AuthController = class AuthController {
     constructor(authService) {
@@ -58,6 +60,14 @@ let AuthController = class AuthController {
     async getUsers(dto) {
         const data = await this.authService.getUsers(dto);
         return { message: 'Users fetched successfully', data };
+    }
+    async uploadKey(user, dto) {
+        await this.authService.uploadKey(String(user.id), dto);
+        return { message: 'Public key stored successfully', data: null };
+    }
+    async getPublicKey(dto) {
+        const data = await this.authService.getPublicKey(dto);
+        return { message: 'Public key fetched successfully', data };
     }
 };
 exports.AuthController = AuthController;
@@ -118,6 +128,25 @@ __decorate([
     __metadata("design:paramtypes", [get_users_dto_1.GetUsersDto]),
     __metadata("design:returntype", Promise)
 ], AuthController.prototype, "getUsers", null);
+__decorate([
+    (0, common_1.Post)('keys'),
+    (0, common_1.HttpCode)(200),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, current_user_decorator_1.CurrentUser)()),
+    __param(1, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [Object, upload_key_dto_1.UploadKeyDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "uploadKey", null);
+__decorate([
+    (0, common_1.Post)('public-key'),
+    (0, common_1.HttpCode)(200),
+    (0, common_1.UseGuards)(jwt_auth_guard_1.JwtAuthGuard),
+    __param(0, (0, common_1.Body)()),
+    __metadata("design:type", Function),
+    __metadata("design:paramtypes", [get_public_key_dto_1.GetPublicKeyDto]),
+    __metadata("design:returntype", Promise)
+], AuthController.prototype, "getPublicKey", null);
 exports.AuthController = AuthController = __decorate([
     (0, common_1.Controller)({ path: 'auth', version: '1' }),
     __metadata("design:paramtypes", [auth_service_1.AuthService])

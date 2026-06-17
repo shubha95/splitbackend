@@ -1,10 +1,7 @@
 import { CanActivate, ExecutionContext } from '@nestjs/common';
-import { JwtService } from '@nestjs/jwt';
-import { Model } from 'mongoose';
-import { UserDocument } from '../../schemas/user.schema';
+import { AuthService } from './auth.service';
 export declare class JwtAuthGuard implements CanActivate {
-    private readonly jwtService;
-    private readonly userModel;
-    constructor(jwtService: JwtService, userModel: Model<UserDocument>);
+    private readonly authService;
+    constructor(authService: AuthService);
     canActivate(context: ExecutionContext): Promise<boolean>;
 }

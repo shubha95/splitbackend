@@ -12,6 +12,7 @@ const mongoose_1 = require("@nestjs/mongoose");
 const expense_controller_1 = require("./expense.controller");
 const expense_service_1 = require("./expense.service");
 const expense_schema_1 = require("../../schemas/expense.schema");
+const group_member_schema_1 = require("../../schemas/group-member.schema");
 const auth_module_1 = require("../auth/auth.module");
 let ExpenseModule = class ExpenseModule {
 };
@@ -19,7 +20,10 @@ exports.ExpenseModule = ExpenseModule;
 exports.ExpenseModule = ExpenseModule = __decorate([
     (0, common_1.Module)({
         imports: [
-            mongoose_1.MongooseModule.forFeature([{ name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema }]),
+            mongoose_1.MongooseModule.forFeature([
+                { name: expense_schema_1.Expense.name, schema: expense_schema_1.ExpenseSchema },
+                { name: group_member_schema_1.GroupMember.name, schema: group_member_schema_1.GroupMemberSchema },
+            ]),
             auth_module_1.AuthModule,
         ],
         controllers: [expense_controller_1.ExpenseController],

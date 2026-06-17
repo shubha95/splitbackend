@@ -27,6 +27,6 @@ import { GroupMember, GroupMemberSchema } from '../../schemas/group-member.schem
   ],
   controllers: [AuthController],
   providers:   [AuthService, SocialAuthService, JwtAuthGuard],
-  exports:     [JwtModule, JwtAuthGuard, MongooseModule],
+  exports:     [JwtModule, JwtAuthGuard, MongooseModule, AuthService],
 })
 export class AuthModule {}

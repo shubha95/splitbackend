@@ -1,8 +1,9 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { ForbiddenException, Injectable, NotFoundException } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 
-import { Expense, ExpenseDocument } from '../../schemas/expense.schema';
+import { Expense, ExpenseDocument }           from '../../schemas/expense.schema';
+import { GroupMember, GroupMemberDocument }   from '../../schemas/group-member.schema';
 import { AddExpenseDto }    from './dto/add-expense.dto';
 import { UpdateExpenseDto } from './dto/update-expense.dto';
 import { GetExpensesDto }   from './dto/get-expenses.dto';
@@ -10,10 +11,21 @@ import { GetExpensesDto }   from './dto/get-expenses.dto';
 @Injectable()
 export class ExpenseService {
   constructor(
-    @InjectModel(Expense.name) private readonly expenseModel: Model<ExpenseDocument>,
+    @InjectModel(Expense.name)     private readonly expenseModel: Model<ExpenseDocument>,
+    @InjectModel(GroupMember.name) private readonly groupMemberModel: Model<GroupMemberDocument>,
   ) {}
 
   async addExpense(userId: string, dto: AddExpenseDto) {
+    if (dto.groupID) {
+      const isMember = await this.groupMemberModel.exists({
+        memberID: userId,
+        groupID:  String(dto.groupID).trim(),
+      });
+      if (!isMember) {
+        throw new ForbiddenException('You are not a member of this group');
+      }
+    }
+
     const expense = new this.expenseModel({
       userId,
       price:       Number(dto.price),
@@ -42,13 +54,15 @@ export class ExpenseService {
   }
 
   async getExpenses(userId: string, dto: GetExpensesDto) {
-    const page  = Number(dto.pageNumber);
-    const limit = Number(dto.itemNumber);
-    const skip  = (page - 1) * limit;
+    const page   = Number(dto.pageNumber);
+    const limit  = Number(dto.itemNumber);
+    const skip   = (page - 1) * limit;
+    const filter: Record<string, any> = { userId };
+    if (dto.groupID) filter.groupID = String(dto.groupID).trim();
 
     const [expenses, totalItems] = await Promise.all([
-      this.expenseModel.find({ userId }).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
-      this.expenseModel.countDocuments({ userId }),
+      this.expenseModel.find(filter).sort({ createdAt: -1 }).skip(skip).limit(limit).lean(),
+      this.expenseModel.countDocuments(filter),
     ]);
 
     const totalPages = Math.ceil(totalItems / limit);

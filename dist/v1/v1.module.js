@@ -12,12 +12,13 @@ const auth_module_1 = require("./auth/auth.module");
 const group_module_1 = require("./group/group.module");
 const expense_module_1 = require("./expense/expense.module");
 const group_member_module_1 = require("./group-member/group-member.module");
+const chat_module_1 = require("./chat/chat.module");
 let V1Module = class V1Module {
 };
 exports.V1Module = V1Module;
 exports.V1Module = V1Module = __decorate([
     (0, common_1.Module)({
-        imports: [auth_module_1.AuthModule, group_module_1.GroupModule, expense_module_1.ExpenseModule, group_member_module_1.GroupMemberModule],
+        imports: [auth_module_1.AuthModule, group_module_1.GroupModule, expense_module_1.ExpenseModule, group_member_module_1.GroupMemberModule, chat_module_1.ChatModule],
     })
 ], V1Module);
 //# sourceMappingURL=v1.module.js.map

@@ -1,5 +1,5 @@
 import { Type } from 'class-transformer';
-import { IsInt, Max, Min } from 'class-validator';
+import { IsInt, IsOptional, IsString, Max, Min } from 'class-validator';
 
 export class GetExpensesDto {
   @Type(() => Number)
@@ -12,4 +12,8 @@ export class GetExpensesDto {
   @Min(1, { message: 'itemNumber must be a positive integer' })
   @Max(100, { message: 'itemNumber must not exceed 100 per page' })
   itemNumber: number;
+
+  @IsOptional()
+  @IsString()
+  groupID?: string;
 }
